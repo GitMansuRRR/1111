@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Режим Сотрудника</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: grid; place-items: center; min-height: 90vh; background: #f4f4f4; }
+        #app { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        select { font-size: 1.2rem; padding: 0.5rem; margin-bottom: 1rem; }
+        button {
+            padding: 1.5rem 3rem; font-size: 1.5rem; font-weight: bold;
+            cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px;
+        }
+        button:hover { background: #218838; }
+        #called-ticket { margin-top: 1.5rem; font-size: 1.8rem; font-weight: bold; color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        {% csrf_token %}
+        <h2>Рабочее место</h2>
+        <select id="window-select">
+            <option value="">-- Выберите ваше окно --</option>
+            {% for window in windows %}
+                <option value="{{ window.id }}">{{ window.window_number }} ({{ window.department.name }})</option>
+            {% endfor %}
+        </select>
+        <br>
+        <button id="call-next-btn">Вызвать следующего</button>
+        <div id="called-ticket"></div>
+    </div>
+
+    <script>
+        const ticketDiv = document.getElementById('called-ticket');
+
+        document.getElementById('call-next-btn').addEventListener('click', () => {
+            const windowId = document.getElementById('window-select').value;
+            if (!windowId) {
+                alert('Пожалуйста, выберите ваше окно');
+                return;
+            }
+
+            fetch('/api/queue/call_next/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ window_id: windowId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) { // Если очередь пуста
+                    ticketDiv.innerText = data.message;
+                } else {
+                    ticketDiv.innerText = `Вызван: ${data.ticket_number}`;
+                }
+            });
+        });
+
+        // Та же функция для CSRF
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

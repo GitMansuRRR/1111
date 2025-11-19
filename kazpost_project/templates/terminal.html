@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Терминал</title>
+    <style>
+        body { font-family: Arial, sans-serif; display: grid; place-items: center; min-height: 90vh; background: #f4f4f4; }
+        #app { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h1 { text-align: center; }
+        button {
+            display: block; width: 100%; padding: 1.5rem; margin: 1rem 0;
+            font-size: 1.2rem; font-weight: bold; cursor: pointer;
+            background: #0056b3; color: white; border: none; border-radius: 5px;
+        }
+        button:hover { background: #003d80; }
+        #ticket-info { text-align: center; font-size: 1.5rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        {% csrf_token %}
+        <div id="service-list">
+            <h1>Выберите услугу</h1>
+            </div>
+        <div id="ticket-info" style="display:none;">
+            <h2>Ваш талон:</h2>
+            <p id="ticket-number"></p>
+        </div>
+    </div>
+
+    <script>
+        let serviceListDiv, ticketInfoDiv, ticketNumberP;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            serviceListDiv = document.getElementById('service-list');
+            ticketInfoDiv = document.getElementById('ticket-info');
+            ticketNumberP = document.getElementById('ticket-number');
+
+            // 1. Загружаем услуги с нашего API
+            fetch('/api/services/')
+                .then(response => response.json())
+                .then(services => {
+                    services.forEach(service => {
+                        const button = document.createElement('button');
+                        button.innerText = service.name;
+                        button.onclick = () => createTicket(service.id);
+                        serviceListDiv.appendChild(button);
+                    });
+                });
+        });
+
+        // 2. Создаем талон (POST-запрос)
+        function createTicket(serviceId) {
+            fetch('/api/queue/create_ticket/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Нам нужен CSRF-токен для POST-запросов из Django
+                    'X-CSRFToken': getCookie('csrftoken') 
+                },
+                body: JSON.stringify({ service_id: serviceId })
+            })
+            .then(response => response.json())
+            .then(ticket => {
+                // Показываем номер талона
+                ticketNumberP.innerText = ticket.ticket_number;
+                serviceListDiv.style.display = 'none';
+                ticketInfoDiv.style.display = 'block';
+            });
+        }
+
+        // Вспомогательная функция для получения CSRF-токена
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

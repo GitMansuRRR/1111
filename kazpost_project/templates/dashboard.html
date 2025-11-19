@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Информационное табло</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1a1a1a; color: white; }
+        h1 { text-align: center; color: #ffc107; }
+        #dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            padding: 1rem;
+        }
+        .ticket {
+            padding: 2rem; margin: 1rem; border-radius: 8px; font-size: 2.5rem;
+            font-weight: bold; text-align: center;
+        }
+        .waiting { background: #5a5a5a; }
+        .called {
+            background: #0056b3;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            50% { background: #007bff; }
+        }
+        .ticket .window { font-size: 2rem; color: #ffc107; }
+    </style>
+</head>
+<body>
+    <h1>Информационное табло</h1>
+    <div id="dashboard">
+        </div>
+
+    <script>
+        const dashboardDiv = document.getElementById('dashboard');
+
+        function updateDashboard() {
+            fetch('/api/queue/get_dashboard/')
+                .then(response => response.json())
+                .then(tickets => {
+                    dashboardDiv.innerHTML = ''; // Очищаем старые данные
+                    
+                    tickets.forEach(ticket => {
+                        const div = document.createElement('div');
+                        div.className = `ticket ${ticket.status}`; // 'waiting' или 'called'
+                        
+                        let content = `${ticket.ticket_number}`;
+                        if (ticket.status === 'called') {
+                            content += `<br><span class="window">→ ${ticket.called_by_window.window_number}</span>`;
+                        }
+                        
+                        div.innerHTML = content;
+                        dashboardDiv.appendChild(div);
+                    });
+                });
+        }
+
+        // Запускаем обновление сразу и потом каждые 3 секунды
+        updateDashboard();
+        setInterval(updateDashboard, 3000); 
+    </script>
+</body>
+</html>

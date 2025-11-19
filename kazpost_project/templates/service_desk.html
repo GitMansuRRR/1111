@@ -1,0 +1,142 @@
+<!-- ЭТАП-3 -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Рабочий стол оператора (ПББ)</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #eef2f5; display: flex; justify-content: center; padding: 20px; }
+        .container { background: white; width: 600px; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #333; }
+        
+        .control-panel { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px solid #eee; }
+        select, input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        
+        button { width: 100%; padding: 15px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn-call { background: #0056b3; color: white; }
+        .btn-call:hover { background: #004494; }
+        .btn-finish { background: #28a745; color: white; }
+        .btn-finish:hover { background: #218838; }
+
+        #active-service-area { display: none; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        .ticket-badge { background: #ffc107; padding: 5px 10px; border-radius: 4px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% csrf_token %}
+        <h1>Казпочта: ПББ</h1>
+
+        <div class="control-panel">
+            <label>Ваше рабочее место:</label>
+            <select id="window-select">
+                <option value="">-- Выберите окно --</option>
+                {% for window in windows %}
+                    <option value="{{ window.id }}">{{ window.window_number }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button class="btn-call" onclick="callNext()">📢 Вызвать следующего клиента</button>
+        <p id="status-msg" style="text-align: center; color: #666; margin-top: 10px;"></p>
+
+        <hr>
+
+        <div id="active-service-area">
+            <h2>Обслуживание клиента: <span id="current-ticket-number" class="ticket-badge">---</span></h2>
+            <p><strong>Услуга:</strong> <span id="current-service-name">---</span></p>
+            
+            <label>Описание операции (вес, адрес, ФИО):</label>
+            <textarea id="service-desc" rows="3" placeholder="Пример: Посылка 2кг в Астану..."></textarea>
+            
+            <label>Стоимость услуги (тг):</label>
+            <input type="number" id="service-price" placeholder="0.00">
+
+            <button class="btn-finish" onclick="finishService()">✅ Завершить обслуживание</button>
+        </div>
+    </div>
+
+    <script>
+        let currentWindowId = null;
+
+        // Сохраняем выбор окна
+        document.getElementById('window-select').addEventListener('change', (e) => {
+            currentWindowId = e.target.value;
+        });
+
+        // 1. Функция ВЫЗОВА (Модуль II)
+        function callNext() {
+            if (!currentWindowId) { alert('Выберите окно!'); return; }
+
+            fetch('/api/queue/call_next/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ window_id: currentWindowId })
+            })
+            .then(res => {
+                if (res.status === 404) {
+                    document.getElementById('status-msg').innerText = "Очередь пуста";
+                    document.getElementById('active-service-area').style.display = 'none';
+                    return null;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (data) {
+                    // Показываем зону обслуживания
+                    document.getElementById('status-msg').innerText = "";
+                    document.getElementById('active-service-area').style.display = 'block';
+                    
+                    // Заполняем данные
+                    document.getElementById('current-ticket-number').innerText = data.ticket_number;
+                    document.getElementById('current-service-name').innerText = data.service.name;
+                    
+                    // Очищаем поля ввода
+                    document.getElementById('service-desc').value = '';
+                    document.getElementById('service-price').value = '';
+                }
+            });
+        }
+
+        // 2. Функция ЗАВЕРШЕНИЯ (Модуль III)
+        function finishService() {
+            if (!currentWindowId) return;
+
+            const desc = document.getElementById('service-desc').value;
+            const price = document.getElementById('service-price').value;
+
+            fetch('/api/queue/complete_service/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ 
+                    window_id: currentWindowId,
+                    description: desc,
+                    price: price
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert('Обслуживание талона ' + data.ticket + ' завершено!');
+                // Скрываем зону обслуживания, так как клиент ушел
+                document.getElementById('active-service-area').style.display = 'none';
+                document.getElementById('status-msg').innerText = "Готов к следующему клиенту";
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>
